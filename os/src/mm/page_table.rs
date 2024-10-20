@@ -172,6 +172,8 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     v
 }
 
+// Referenced the functionality of the copy out function in xv6
+// and ChatGPT’s implementation for converting structures into &[u8].
 /// Lab ch4 -- Copy struct data out into the virtual memory
 pub fn copy_out<T>(token: usize, ptr: *mut T, data: T) {
     let len = core::mem::size_of::<T>();
