@@ -112,6 +112,11 @@ pub fn frame_alloc() -> Option<FrameTracker> {
         .map(FrameTracker::new)
 }
 
+/// Lab ch4 -- Allocate a physical page frame in PhysPageNum style
+pub fn frame_alloc_simple() -> Option<PhysPageNum> {
+    FRAME_ALLOCATOR.exclusive_access().alloc()
+}
+
 /// Deallocate a physical page frame with a given ppn
 pub fn frame_dealloc(ppn: PhysPageNum) {
     FRAME_ALLOCATOR.exclusive_access().dealloc(ppn);

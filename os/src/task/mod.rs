@@ -14,7 +14,9 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::{MapPermission, VirtAddr};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
@@ -120,6 +122,15 @@ impl TaskManager {
         inner.tasks[inner.current_task].get_user_token()
     }
 
+    /// Lab ch4 -- Insert framed area into current task's memory set
+    fn insert_framed_area(&self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {
+        let mut inner = self.inner.exclusive_access();
+        let curr_task = inner.current_task;
+        inner.tasks[curr_task]
+            .memory_set
+            .insert_framed_area(start_va, end_va, permission);
+    }
+
     /// Get the current 'Running' task's trap contexts.
     fn get_current_trap_cx(&self) -> &'static mut TrapContext {
         let inner = self.inner.exclusive_access();
@@ -201,4 +212,21 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// Lab ch4 -- Get the current task's memory sey
+pub fn insert_framed_area(start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {
+    TASK_MANAGER.insert_framed_area(start_va, end_va, permission);
+}
+
+/// Lab ch4 -- Get the current task's syscall times
+pub fn task_syscall_times() -> [u32; MAX_SYSCALL_NUM] {
+    let curr_task = TASK_MANAGER.inner.exclusive_access().current_task;
+    TASK_MANAGER.inner.exclusive_access().tasks[curr_task].task_syscall_times
+}
+
+/// Lab ch4 -- Add 1 into syscall_times of the current task
+pub fn upd_syscall_times(syscall_id: usize) {
+    let curr_task = TASK_MANAGER.inner.exclusive_access().current_task;
+    TASK_MANAGER.inner.exclusive_access().tasks[curr_task].task_syscall_times[syscall_id] += 1;
 }
