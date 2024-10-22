@@ -213,3 +213,17 @@ pub fn translated_refmut<T>(token: usize, ptr: *mut T) -> &'static mut T {
         .unwrap()
         .get_mut()
 }
+
+/// Lab ch4 -- Copy struct data out into the virtual memory
+pub fn copy_out<T>(token: usize, ptr: *mut T, data: T) {
+    let len = core::mem::size_of::<T>();
+    let mut out_v = translated_byte_buffer(token, ptr as *const u8, len);
+    let data_v = unsafe { core::slice::from_raw_parts(&data as *const T as *const u8, len) };
+    let mut i = 0;
+    for bytes in out_v.iter_mut() {
+        for j in 0..bytes.len() {
+            (*bytes)[j] = data_v[i];
+            i += 1;
+        }
+    }
+}
