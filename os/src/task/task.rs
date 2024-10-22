@@ -1,7 +1,7 @@
 //! Types related to task management & Functions for completely changing TCB
 use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-use crate::config::{BIG_STRIDE, DEFAULT_PRIORITY, TRAP_CONTEXT_BASE};
+use crate::config::{BIG_STRIDE, DEFAULT_PRIORITY, MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
@@ -74,6 +74,9 @@ pub struct TaskControlBlockInner {
 
     /// Lab ch5 -- default pass for Stride Sched Algorithm
     pub pass: usize,
+
+    /// Lab ch5 -- syscall times in task info
+    pub task_syscall_times: [u32; MAX_SYSCALL_NUM],
 }
 
 impl TaskControlBlockInner {
@@ -126,6 +129,7 @@ impl TaskControlBlock {
                     program_brk: user_sp,
                     stride: 0,
                     pass: BIG_STRIDE / DEFAULT_PRIORITY,
+                    task_syscall_times: [0; MAX_SYSCALL_NUM],
                 })
             },
         };
@@ -201,6 +205,7 @@ impl TaskControlBlock {
                     program_brk: parent_inner.program_brk,
                     stride: 0,
                     pass: BIG_STRIDE / DEFAULT_PRIORITY,
+                    task_syscall_times: [0; MAX_SYSCALL_NUM],
                 })
             },
         });

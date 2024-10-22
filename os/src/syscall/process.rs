@@ -2,12 +2,15 @@
 use alloc::sync::Arc;
 
 use crate::{
-    config::{BIG_STRIDE, MAX_SYSCALL_NUM},
+    config::{BIG_STRIDE, MAX_SYSCALL_NUM, PAGE_SIZE},
     loader::get_app_data_by_name,
-    mm::{copy_out, translated_refmut, translated_str},
+    mm::{
+        copy_out, translated_refmut, translated_str, unmap_and_dealloc, MapPermission, PageTable,
+        StepByOne, VirtAddr, VirtPageNum,
+    },
     task::{
-        add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next, TaskControlBlock, TaskStatus,
+        add_task, current_task, current_user_token, exit_current_and_run_next, insert_framed_area,
+        suspend_current_and_run_next, task_syscall_times, TaskControlBlock, TaskStatus,
     },
     timer::get_time_us,
 };
@@ -140,30 +143,73 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 /// YOUR JOB: Finish sys_task_info to pass testcases
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TaskInfo`] is splitted by two pages ?
-pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_task_info NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
+pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
+    error!("kernel: sys_task_info NOT IMPLEMENTED YET!");
+    copy_out(
+        current_user_token(),
+        ti,
+        TaskInfo {
+            status: TaskStatus::Running,
+            syscall_times: task_syscall_times(),
+            time: get_time_us() / 1_000,
+        },
     );
-    -1
+    0
 }
 
 /// YOUR JOB: Implement mmap.
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
+    trace!("kernel: sys_mmap");
+    // Check args
+    if start % 4096 != 0 {
+        error!("sys_mmap check start invalid; start = {}", start);
+        return -1;
+    }
+    if prot == 0 || prot & !0x7 != 0 {
+        error!("sys_mmap check prot invalid; prot = {}", prot);
+        return -1;
+    }
+    // Prepare alloc and map info
+    let start_va: VirtAddr = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start + len);
+    let mut permission = MapPermission::empty();
+    permission.set(MapPermission::U, true);
+    permission.set(MapPermission::R, prot & 1 != 0);
+    permission.set(MapPermission::W, prot & 0x2 != 0);
+    permission.set(MapPermission::X, prot & 0x4 != 0);
+    // Check if already allocated
+    let page_table = PageTable::from_token(current_user_token());
+    let mut vpn = VirtPageNum(start / PAGE_SIZE);
+    let num_of_pages = len / PAGE_SIZE + if len % PAGE_SIZE != 0 { 1 } else { 0 };
+    for _ in 0..num_of_pages {
+        match page_table.translate(vpn) {
+            Some(pte) => {
+                if pte.is_valid() {
+                    return -1;
+                }
+            }
+            None => {}
+        }
+        vpn.step();
+    }
+    insert_framed_area(start_va, end_va, permission);
+    0
 }
 
-/// YOUR JOB: Implement munmap.
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    trace!(
-        "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
-        current_task().unwrap().pid.0
-    );
-    -1
+// YOUR JOB: Implement munmap.
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    trace!("kernel: sys_munmap");
+    // Check
+    if start % 4096 != 0 {
+        return -1;
+    }
+    let token = current_user_token();
+    let start_vpn = VirtPageNum(start / 4096);
+    let num_of_pages = len / 4096 + if len % 4096 != 0 { 1 } else { 0 };
+    match unmap_and_dealloc(token, start_vpn, num_of_pages) {
+        None => -1,
+        Some(()) => 0,
+    }
 }
 
 /// change data segment size

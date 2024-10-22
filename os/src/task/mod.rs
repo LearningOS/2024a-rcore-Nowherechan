@@ -21,20 +21,21 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::config::MAX_SYSCALL_NUM;
 use crate::loader::get_app_data_by_name;
+use crate::mm::{MapPermission, VirtAddr};
 use alloc::sync::Arc;
-use lazy_static::*;
-pub use manager::{fetch_task, TaskManager};
-use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus};
-
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-pub use manager::add_task;
+use lazy_static::*;
+pub use manager::{add_task, TASK_MANAGER};
+pub use manager::{fetch_task, TaskManager};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
     Processor,
 };
+use switch::__switch;
+pub use task::{TaskControlBlock, TaskStatus};
 /// Suspend the current 'Running' task and run the next task in task list.
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
@@ -114,4 +115,28 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+/// Lab ch5 -- Get the current task's syscall times
+pub fn task_syscall_times() -> [u32; MAX_SYSCALL_NUM] {
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .task_syscall_times
+}
+
+/// Lab ch5 -- Add 1 into syscall_times of the current task
+pub fn upd_syscall_times(syscall_id: usize) {
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .task_syscall_times[syscall_id] += 1
+}
+
+/// Lab ch5 -- Insert framed area into current task's memory set
+pub fn insert_framed_area(start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {
+    let task = current_task().unwrap();
+    task.inner_exclusive_access()
+        .memory_set
+        .insert_framed_area(start_va, end_va, permission);
 }

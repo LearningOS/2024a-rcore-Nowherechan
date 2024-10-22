@@ -227,3 +227,36 @@ pub fn copy_out<T>(token: usize, ptr: *mut T, data: T) {
         }
     }
 }
+
+/// Lab ch5 -- Unmap and deallocate one physical page; return None when something wrong
+pub fn unmap_and_dealloc(token: usize, start_vpn: VirtPageNum, num_of_pages: usize) -> Option<()> {
+    let mut page_table = PageTable::from_token(token);
+    let mut vpn = start_vpn;
+    let mut ppn_v = vec![];
+    // Check if there is a invalid vpn
+    for _ in 0..num_of_pages {
+        match page_table.translate(vpn) {
+            None => {
+                return None;
+            }
+            Some(pte) => {
+                if pte.is_valid() {
+                    ppn_v.push(pte.ppn());
+                } else {
+                    return None;
+                }
+            }
+        }
+        vpn.step();
+    }
+    // Resume vpn for later use
+    vpn = start_vpn;
+    for _ in 0..num_of_pages {
+        page_table.unmap(vpn);
+        vpn.step();
+    }
+    // for &ppn in ppn_v.iter() {
+    //     frame_dealloc(ppn);
+    // }
+    Some(())
+}
