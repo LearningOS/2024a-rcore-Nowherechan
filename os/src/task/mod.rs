@@ -30,6 +30,8 @@ pub use manager::{fetch_task, TaskManager};
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 
+use crate::config::MAX_SYSCALL_NUM;
+use crate::mm::{MapPermission, VirtAddr};
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
 pub use manager::add_task;
 pub use processor::{
@@ -119,4 +121,26 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+/// Lab ch6 -- Get the current task's syscall times
+pub fn task_syscall_times() -> [u32; MAX_SYSCALL_NUM] {
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .task_syscall_times
+}
+/// Lab ch6 -- Add 1 into syscall_times of the current task
+pub fn upd_syscall_times(syscall_id: usize) {
+    current_task()
+        .unwrap()
+        .inner_exclusive_access()
+        .task_syscall_times[syscall_id] += 1
+}
+/// Lab ch6 -- Insert framed area into current task's memory set
+pub fn insert_framed_area(start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {
+    let task = current_task().unwrap();
+    task.inner_exclusive_access()
+        .memory_set
+        .insert_framed_area(start_va, end_va, permission);
 }

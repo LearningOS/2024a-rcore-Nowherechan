@@ -17,6 +17,10 @@ impl File for Stdin {
     fn writable(&self) -> bool {
         false
     }
+    // Lab ch6 -- get stat
+    fn getstat(&self) -> Option<super::Stat> {
+        None
+    }
     fn read(&self, mut user_buf: UserBuffer) -> usize {
         assert_eq!(user_buf.len(), 1);
         // busy loop
@@ -47,6 +51,10 @@ impl File for Stdout {
     }
     fn writable(&self) -> bool {
         true
+    }
+    // Lab ch6 -- isfile
+    fn getstat(&self) -> Option<super::Stat> {
+        None
     }
     fn read(&self, _user_buf: UserBuffer) -> usize {
         panic!("Cannot read from stdout!");
