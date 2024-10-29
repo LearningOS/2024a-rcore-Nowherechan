@@ -3,10 +3,10 @@ use crate::{
     task::{add_task, current_task, TaskControlBlock},
     trap::{trap_handler, TrapContext},
 };
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec};
 /// thread create syscall
 pub fn sys_thread_create(entry: usize, arg: usize) -> isize {
-    trace!(
+    debug!(
         "kernel:pid[{}] tid[{}] sys_thread_create",
         current_task().unwrap().process.upgrade().unwrap().getpid(),
         current_task()
@@ -50,6 +50,11 @@ pub fn sys_thread_create(entry: usize, arg: usize) -> isize {
         trap_handler as usize,
     );
     (*new_task_trap_cx).x[10] = arg;
+    // Lab ch8 -- add deadlock detection
+    let sem_cnt = process_inner.semaphore_list.len();
+    process_inner.semaphore_allocation.push(vec![0; sem_cnt]);
+    process_inner.semaphore_need.push(vec![0; sem_cnt]);
+    drop(process_inner);
     new_task_tid as isize
 }
 /// get current thread id syscall

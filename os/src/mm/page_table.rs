@@ -179,6 +179,20 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     v
 }
 
+/// Lab ch8 -- Copy struct data out into the virtual memory
+pub fn copy_out<T>(token: usize, ptr: *mut T, data: T) {
+    let len = core::mem::size_of::<T>();
+    let mut out_v = translated_byte_buffer(token, ptr as *const u8, len);
+    let data_v = unsafe { core::slice::from_raw_parts(&data as *const T as *const u8, len) };
+    let mut i = 0;
+    for bytes in out_v.iter_mut() {
+        for j in 0..bytes.len() {
+            (*bytes)[j] = data_v[i];
+            i += 1;
+        }
+    }
+}
+
 /// Create String in kernel address space from u8 Array(end with 0) in other address space
 pub fn translated_str(token: usize, ptr: *const u8) -> String {
     let page_table = PageTable::from_token(token);
